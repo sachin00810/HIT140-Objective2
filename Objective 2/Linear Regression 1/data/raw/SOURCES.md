@@ -1,8 +1,8 @@
 # Data sources (approved sites only)
 
 Both models in this repository are built from the same three raw files below:
-`build_dataset.py` -> 104 rows (Linear Regression 2.1, goal difference) and
-`build_dataset_lr22.py` -> 208 rows (Linear Regression 2.2, goals scored by a team).
+`Linear Regression 1/script/build_dataset.py` -> 104 rows (goal difference) and
+`Linear Regression 2/script/build_dataset.py` -> 208 rows (goals scored by a team).
 
 Shared explanatory variables between 2.1 and 2.2 (limit is 4):
 
@@ -28,6 +28,6 @@ Notes
 - Why the ranking is used: for opening matches no team has tournament history, so zero-fill carries no information. The pre-tournament FIFA points give a real pre-match strength measure for every match.
 - The Stats Don't Lie table does NOT contain the third-place play-off, which is why it comes from FIFA.
 - The FIFA statistics page (/statistics) shows tournament-total leaderboards, not match-by-match data, so it is not used for pre-match variables (totals would include the match being predicted).
-- FBref: the World Cup 2026 section could not be read in the tool used; it is not used.
+- FBref: the World Cup 2026 match statistics could not be accessed; no data is taken from it.
 - Scores include extra time. A "p" next to a score marks the side that won the penalty shoot-out; shoot-outs are NOT counted, so those matches have goal_diff = 0.
-- Values were read from the live page, saved, then checked against per-row checksums calculated in the page and against a separate raw file in the group repo (Dorjee/data/raw/Rawdata.csv). One typing error was found and fixed (Panama v Croatia, yellow cards).
+- Values were read from the live page, then checked against per-row checksums calculated in the page and against a separate copy of the same table. One typing error was found and fixed (Panama v Croatia, yellow cards).
