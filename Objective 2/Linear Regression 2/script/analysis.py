@@ -1,6 +1,6 @@
 """
 Linear Regression 2.2 - predict the goals scored by a team in a World Cup 2026 match.
-Run:  python script/analysis_lr22.py        (writes to output_lr22/)
+Run:  python script/analysis.py        (writes to output/)
 
 EDA -> VIF -> OLS (cluster-robust by match) -> diagnostics -> repeated CV (both teams of a match
 always in the same fold) -> chronological hold-out -> rolling-origin -> feature ablation ->
@@ -29,11 +29,11 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import build_dataset_lr22 as bd
+import build_dataset as bd
 
 warnings.filterwarnings("ignore")
 SEED, ROOT = 140, Path(__file__).resolve().parents[1]
-OUT = ROOT / "output_lr22"; OUT.mkdir(exist_ok=True)
+OUT = ROOT / "output"; OUT.mkdir(exist_ok=True)
 F, Y = bd.FEATURES, "goals"
 LABEL = {"prior_goals_avg": "Prev. avg goals scored", "prior_sot_avg": "Prev. avg shots on target",
          "prior_shots_avg": "Prev. avg shots", "prior_corners_avg": "Prev. avg corners",

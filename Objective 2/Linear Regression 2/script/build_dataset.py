@@ -21,21 +21,47 @@ Teams in their opening match have no tournament history: variables 1-5 and 8 are
 fold only (mean of the training rows), and also reports results without those rows.
 """
 from pathlib import Path
+import re
 import numpy as np
 import pandas as pd
-import build_dataset as bd      # reuses the verified 104-match table
 
 ROOT = Path(__file__).resolve().parents[1]
-PROC = ROOT / "data" / "processed"
+RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
 FEATURES = ["prior_goals_avg", "prior_sot_avg", "prior_shots_avg", "prior_corners_avg",
             "opp_prior_conceded_avg", "team_fifa_pts", "opp_fifa_pts", "rest_days"]
 HISTORY = ["prior_goals_avg", "prior_sot_avg", "prior_shots_avg", "prior_corners_avg",
            "opp_prior_conceded_avg", "rest_days"]
 
 
+def num(x):           # "1p" -> 1, "p0" -> 0, "2" -> 2
+    return int(re.sub(r"\D", "", str(x)))
+
+
+def load_matches():
+    """The verified 104-match table (same raw files as Linear Regression 1)."""
+    t = pd.read_csv(RAW / "tsdl_match_table_raw.csv", dtype=str)
+    f = pd.read_csv(RAW / "fifa_third_place_playoff.csv", dtype=str)
+    final_pos = t.index[t.stage == "FINAL"][0]          # third-place play-off sits just before the Final
+    m = pd.concat([t.iloc[:final_pos], f[t.columns.intersection(f.columns)], t.iloc[final_pos:]], ignore_index=True)
+    m["match_no"] = np.arange(1, len(m) + 1)
+    m["date"] = pd.to_datetime(m["date"], format="%d/%m/%Y")
+    for c in ["score1", "score2"]:
+        m[c] = m[c].map(num)
+    for c in m.columns:
+        if c not in ["stage", "date", "team1", "team2", "match_no", "score1", "score2"]:
+            m[c] = pd.to_numeric(m[c], errors="coerce")
+    return m
+
+
+def load_ranking():
+    r = pd.read_csv(RAW / "fifa_ranking_pre_tournament.csv")
+    assert len(r) == 48 and r.team.is_unique
+    return r.set_index("team").points
+
+
 def build():
-    m = bd.load_matches()
-    pts = bd.load_ranking()
+    m = load_matches()
+    pts = load_ranking()
     rows = []
     for k, (a, b) in enumerate((("1", "2"), ("2", "1"))):
         rows.append(pd.DataFrame({
