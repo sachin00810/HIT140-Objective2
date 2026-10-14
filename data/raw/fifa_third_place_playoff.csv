@@ -1,2 +1,2 @@
-stage,date,team1,score1,score2,team2,source_url,note
-THIRD PLACE,18/07/2026,France,4,6,England,https://www.fifa.com/en/match-centre/match/17/285023/289291/400021542,"FIFA match centre shows France v England 4-6 at Miami Stadium. The page displayed 19 Jul in the viewer's time zone (Darwin); match is played after the semi-finals and before the Final, so it is placed second-last. Only the final score is used (target for 2.1)."
+stage,date,team1,score1,score2,team2,source_url
+THIRD PLACE,18/07/2026,France,4,6,England,https://www.fifa.com/en/match-centre/match/17/285023/289291/400021542
