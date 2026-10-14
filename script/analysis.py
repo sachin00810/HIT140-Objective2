@@ -20,6 +20,9 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, RidgeCV, LassoCV, HuberRegressor
 from sklearn.dummy import DummyRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.model_selection import (RepeatedKFold, KFold, GridSearchCV, cross_val_predict, TimeSeriesSplit)
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
@@ -32,7 +35,7 @@ SEED, ROOT = 140, Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"; OUT.mkdir(exist_ok=True)
 F, Y = bd.FEATURES, "goal_diff"
 LABEL = {"xg_diff": "Prev. avg xG created (diff)", "xga_diff": "Prev. avg xG conceded (diff)",
-         "gd_diff": "Prev. avg goal difference (diff)", "ppg_diff": "Points per game so far (diff)",
+         "fifa_pts_diff": "Pre-tournament FIFA points (diff)", "ppg_diff": "Points per game so far (diff)",
          "fouls_diff": "Prev. avg fouls (diff)", "rest_diff": "Rest days (diff)",
          "is_knockout": "Knockout stage (0/1)", "host_adv": "Host-nation edge (-1/0/+1)"}
 plt.rcParams.update({"figure.dpi": 130, "axes.spines.top": False, "axes.spines.right": False,
@@ -129,6 +132,12 @@ def models():
         "OLS + best-k selection": GridSearchCV(
             make_pipeline(SelectKBest(f_regression), LinearRegression()),
             {"selectkbest__k": [1, 2, 3, 4, 5, 6, 8]}, cv=5, scoring="neg_mean_squared_error"),
+        # non-linear / ensemble competitors (fixed, modest settings: only 104 rows)
+        "Random forest": RandomForestRegressor(n_estimators=300, min_samples_leaf=5, random_state=SEED, n_jobs=-1),
+        "Gradient boosting": GradientBoostingRegressor(n_estimators=100, max_depth=2, learning_rate=0.05,
+                                                       subsample=0.8, random_state=SEED),
+        "SVR (RBF)": make_pipeline(StandardScaler(), SVR(C=1.0, epsilon=0.5)),
+        "k-NN (k=10)": make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=10)),
     }
 def metrics(yt, yp):
     return {"R2": r2_score(yt, yp), "MAE": mean_absolute_error(yt, yp), "RMSE": mean_squared_error(yt, yp) ** .5}

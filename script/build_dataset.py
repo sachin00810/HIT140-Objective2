@@ -9,15 +9,17 @@ matches played on EARLIER calendar days, as a difference "team1 minus team2":
 
   1 xg_diff        previous average expected goals (xG) created
   2 xga_diff       previous average xG conceded (= opponents' xG)
-  3 gd_diff        previous average goal difference per match
+  3 fifa_pts_diff  FIFA world-ranking points from the PRE-TOURNAMENT release (11 June 2026,
+                   published before the first kick-off); team1 points minus team2 points
   4 ppg_diff       tournament points per match so far (win 3, draw 1, loss 0)
   5 fouls_diff     previous average fouls committed
   6 rest_diff      days since own previous match
   7 is_knockout    1 = knockout stage, 0 = group stage
   8 host_adv       +1 team1 is a host nation, -1 team2 is, 0 neither (USA, Canada, Mexico)
 
-Opening matches: no team has history yet. Both teams are opening their tournament in
-those matches, so every difference is set to 0 ("no information about who is better").
+Opening matches: no team has tournament history yet, so the five history differences are
+0 there. fifa_pts_diff is a real pre-tournament strength signal available for every match,
+so the 24 opening matches still carry information about which team is stronger.
 """
 from pathlib import Path
 import re
@@ -26,7 +28,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
-FEATURES = ["xg_diff", "xga_diff", "gd_diff", "ppg_diff", "fouls_diff", "rest_diff", "is_knockout", "host_adv"]
+FEATURES = ["xg_diff", "xga_diff", "fifa_pts_diff", "ppg_diff", "fouls_diff", "rest_diff", "is_knockout", "host_adv"]
+HISTORY = ["xg_diff", "xga_diff", "ppg_diff", "fouls_diff", "rest_diff"]   # need earlier tournament matches
 HOSTS = {"USA", "Canada", "Mexico"}
 
 
@@ -50,6 +53,12 @@ def load_matches():
     return m
 
 
+def load_ranking():
+    r = pd.read_csv(RAW / "fifa_ranking_pre_tournament.csv")
+    assert len(r) == 48 and r.team.is_unique
+    return r.set_index("team").points
+
+
 def long_format(m):
     rows = []
     for k, (a, b) in enumerate((("1", "2"), ("2", "1"))):
@@ -71,6 +80,7 @@ def team_history(L, team, date):
 def build():
     m = load_matches()
     L = long_format(m)
+    pts = load_ranking()
     out = []
     for _, r in m.iterrows():
         feats = {}
@@ -80,16 +90,17 @@ def build():
             if len(h) == 0:
                 per[side] = None
             else:
-                per[side] = {"xg": h.xg.mean(), "xga": h.xga.mean(), "gd": h.gd.mean(),
+                per[side] = {"xg": h.xg.mean(), "xga": h.xga.mean(),
                              "ppg": h.points.mean(), "fouls": h.fouls.mean(),
                              "rest": (r.date - h.date.max()).days}
-        for name, key in [("xg_diff", "xg"), ("xga_diff", "xga"), ("gd_diff", "gd"),
+        for name, key in [("xg_diff", "xg"), ("xga_diff", "xga"),
                           ("ppg_diff", "ppg"), ("fouls_diff", "fouls"), ("rest_diff", "rest")]:
             if per["t1"] is None and per["t2"] is None:
                 feats[name] = 0.0                    # both teams opening their tournament
             else:
                 assert per["t1"] is not None and per["t2"] is not None, "one team with history, one without"
                 feats[name] = per["t1"][key] - per["t2"][key]
+        feats["fifa_pts_diff"] = float(pts[r.team1] - pts[r.team2])
         feats["is_knockout"] = int(r.stage != "GROUP STAGE")
         feats["host_adv"] = int(r.team1 in HOSTS) - int(r.team2 in HOSTS)
         out.append({"match_no": r.match_no, "date": r.date.strftime("%Y-%m-%d"), "stage": r.stage,
@@ -110,4 +121,4 @@ if __name__ == "__main__":
     D.to_csv(PROC / "wc2026_lr21_dataset.csv", index=False)
     print(D.shape); print(D[FEATURES + ["goal_diff"]].describe().T.round(3))
     print("stages:", D.stage.value_counts().to_dict())
-    print("rows with all-zero history features (opening round):", int((D[FEATURES[:6]].abs().sum(axis=1) == 0).sum()))
+    print("rows with all-zero history features (opening round):", int((D[HISTORY].abs().sum(axis=1) == 0).sum()))
