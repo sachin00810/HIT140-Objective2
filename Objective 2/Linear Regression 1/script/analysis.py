@@ -33,6 +33,12 @@ import build_dataset as bd
 warnings.filterwarnings("ignore")
 SEED, ROOT = 140, Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"; OUT.mkdir(exist_ok=True)
+EDA   = OUT / "1_exploratory_data_analysis"      # descriptives, correlations, multicollinearity
+MODEL = OUT / "2_regression_model"               # fitted OLS, coefficients, assumption checks
+EVAL  = OUT / "3_model_evaluation"               # cross-validation, hold-out, algorithm comparison
+FEAT  = OUT / "4_feature_experiments"            # ablation, subsets, sensitivity
+for _d in (EDA, MODEL, EVAL, FEAT):
+    _d.mkdir(parents=True, exist_ok=True)
 F, Y = bd.FEATURES, "goal_diff"
 LABEL = {"xg_diff": "Prev. avg xG created (diff)", "xga_diff": "Prev. avg xG conceded (diff)",
          "fifa_pts_diff": "Pre-tournament FIFA points (diff)", "ppg_diff": "Points per game so far (diff)",
@@ -54,13 +60,13 @@ say(f"Dataset: {D.shape[0]} matches, {len(F)} explanatory variables, target = {Y
 # ------------------------------------------------------------------ 2. EDA
 desc = D[F + [Y]].describe().T
 desc["skew"] = D[F + [Y]].skew()
-desc.round(3).to_csv(OUT / "descriptive_statistics.csv")
+desc.round(3).to_csv(EDA / "descriptive_statistics.csv")
 say("\n== Descriptive statistics =="); say(desc.round(3).to_string())
 say(f"\nTarget: mean {y.mean():.2f}, sd {y.std():.2f}; team1 wins {np.mean(y>0):.0%}, "
     f"draws {np.mean(y==0):.0%}, loses {np.mean(y<0):.0%}")
 
 corr = D[F + [Y]].corr()
-corr.round(3).to_csv(OUT / "correlation_matrix.csv")
+corr.round(3).to_csv(EDA / "correlation_matrix.csv")
 fig, ax = plt.subplots(figsize=(7, 5.6))
 im = ax.imshow(corr, cmap="RdBu_r", vmin=-1, vmax=1)
 ax.set_xticks(range(len(corr))); ax.set_yticks(range(len(corr)))
@@ -69,12 +75,12 @@ for i in range(len(corr)):
     for j in range(len(corr)):
         ax.text(j, i, f"{corr.iloc[i, j]:.2f}", ha="center", va="center", fontsize=7)
 fig.colorbar(im, shrink=.8); ax.set_title("Correlation matrix"); fig.tight_layout()
-fig.savefig(OUT / "fig1_correlation_heatmap.png"); plt.close(fig)
+fig.savefig(EDA / "fig1_correlation_heatmap.png"); plt.close(fig)
 
 fig, ax = plt.subplots(figsize=(5.5, 3.4))
 ax.hist(y, bins=np.arange(y.min() - .5, y.max() + 1.5, 1), color=BLUE, edgecolor="white")
 ax.set_xlabel("Goal difference (team1 - team2)"); ax.set_ylabel("Matches"); ax.set_title("Target distribution")
-fig.tight_layout(); fig.savefig(OUT / "fig2_target_distribution.png"); plt.close(fig)
+fig.tight_layout(); fig.savefig(EDA / "fig2_target_distribution.png"); plt.close(fig)
 
 fig, axs = plt.subplots(2, 4, figsize=(11, 5), sharey=True)
 for a, c in zip(axs.ravel(), F):
@@ -84,19 +90,19 @@ for a, c in zip(axs.ravel(), F):
     a.set_title(f"{c}  (r={corr.loc[c, Y]:.2f})", fontsize=8); a.set_xlabel("")
 axs[0, 0].set_ylabel("goal_diff"); axs[1, 0].set_ylabel("goal_diff")
 fig.suptitle("Each predictor vs goal difference", fontweight="bold"); fig.tight_layout()
-fig.savefig(OUT / "fig3_scatter_vs_target.png"); plt.close(fig)
+fig.savefig(EDA / "fig3_scatter_vs_target.png"); plt.close(fig)
 
 Xc = sm.add_constant(X)
 vif = pd.Series([variance_inflation_factor(Xc.values, i) for i in range(1, Xc.shape[1])], index=F, name="VIF")
-vif.round(2).to_csv(OUT / "vif.csv"); say("\n== Variance inflation factors (multicollinearity; >5 = concern) =="); say(vif.round(2).to_string())
+vif.round(2).to_csv(EDA / "vif.csv"); say("\n== Variance inflation factors (multicollinearity; >5 = concern) =="); say(vif.round(2).to_string())
 
 # ------------------------------------------------------------------ 3. OLS on all matches (inference)
 ols = sm.OLS(y, Xc).fit()
-(OUT / "ols_summary.txt").write_text(str(ols.summary()))
+(MODEL / "ols_summary.txt").write_text(str(ols.summary()))
 ci = ols.conf_int(); coef = pd.DataFrame({"coef": ols.params, "std_err": ols.bse, "t": ols.tvalues,
     "p_value": ols.pvalues, "ci_low": ci[0], "ci_high": ci[1]})
 std_beta = (ols.params[F] * X.std() / y.std()); coef["std_beta"] = std_beta
-coef.round(4).to_csv(OUT / "ols_coefficients.csv")
+coef.round(4).to_csv(MODEL / "ols_coefficients.csv")
 say(f"\n== OLS on all 104 matches ==  R2={ols.rsquared:.3f}  adj R2={ols.rsquared_adj:.3f}  "
     f"F-test p={ols.f_pvalue:.3f}  AIC={ols.aic:.1f}")
 say(coef.round(3).to_string())
@@ -106,7 +112,7 @@ c = coef.loc[F][::-1]; pos = np.arange(len(c))
 ax.errorbar(c.coef, pos, xerr=[c.coef - c.ci_low, c.ci_high - c.coef], fmt="o", color=BLUE, capsize=3)
 ax.axvline(0, color=GREY, ls="--"); ax.set_yticks(pos); ax.set_yticklabels([LABEL[i] for i in c.index])
 ax.set_xlabel("OLS coefficient (goals), 95% CI"); ax.set_title("Which variables matter?"); fig.tight_layout()
-fig.savefig(OUT / "fig4_coefficients.png"); plt.close(fig)
+fig.savefig(MODEL / "fig4_coefficients.png"); plt.close(fig)
 
 # diagnostics
 res, fit = ols.resid, ols.fittedvalues
@@ -119,7 +125,7 @@ axs[0].scatter(fit, res, s=14, alpha=.7, color=BLUE); axs[0].axhline(0, color=OR
 axs[0].set(xlabel="Fitted", ylabel="Residual", title="Residuals vs fitted")
 sm.qqplot(res, line="s", ax=axs[1], markersize=3); axs[1].set_title("Normal Q-Q")
 axs[2].stem(D.match_no, cook, markerfmt=".", basefmt=" "); axs[2].set(xlabel="match_no", title="Cook's distance")
-fig.tight_layout(); fig.savefig(OUT / "fig5_diagnostics.png"); plt.close(fig)
+fig.tight_layout(); fig.savefig(MODEL / "fig5_diagnostics.png"); plt.close(fig)
 
 # ------------------------------------------------------------------ 4. out-of-sample evaluation
 def models():
@@ -157,7 +163,7 @@ def cv_table(Xd, yd, mods):
     return pd.DataFrame(out).set_index("model")
 
 say("\n== Repeated 5-fold CV (20 repeats, out-of-fold predictions) ==")
-cvt = cv_table(X, y, models()); cvt.round(3).to_csv(OUT / "model_comparison_cv.csv"); say(cvt.round(3).to_string())
+cvt = cv_table(X, y, models()); cvt.round(3).to_csv(EVAL / "model_comparison_cv.csv"); say(cvt.round(3).to_string())
 
 # chronological checks (predict later matches from earlier ones)
 split = int(round(len(D) * .8)); tr, te = D.index[:split], D.index[split:]
@@ -165,7 +171,7 @@ chrono = []
 for name, mdl in models().items():
     mdl.fit(X.loc[tr], y.loc[tr]); chrono.append({"model": name, **metrics(y.loc[te], mdl.predict(X.loc[te]))})
 chrono = pd.DataFrame(chrono).set_index("model")
-chrono.round(3).to_csv(OUT / "model_comparison_chronological_holdout.csv")
+chrono.round(3).to_csv(EVAL / "model_comparison_chronological_holdout.csv")
 say(f"\n== Chronological hold-out: train first {split} matches, test last {len(te)} =="); say(chrono.round(3).to_string())
 
 tsr = []
@@ -175,7 +181,7 @@ for name, mdl in models().items():
         mdl.fit(X.iloc[a], y.iloc[a]); p = mdl.predict(X.iloc[b])
         folds.append(metrics(y.iloc[b], p))
     f = pd.DataFrame(folds); tsr.append({"model": name, "R2": f.R2.mean(), "MAE": f.MAE.mean(), "RMSE": f.RMSE.mean()})
-tsr = pd.DataFrame(tsr).set_index("model"); tsr.round(3).to_csv(OUT / "model_comparison_rolling_origin.csv")
+tsr = pd.DataFrame(tsr).set_index("model"); tsr.round(3).to_csv(EVAL / "model_comparison_rolling_origin.csv")
 say("\n== Rolling-origin CV (5 expanding windows, 15 test matches each) =="); say(tsr.round(3).to_string())
 
 # train vs CV gap for plain OLS
@@ -191,7 +197,7 @@ for c in F:
     s = repeated_cv(LinearRegression(), X[[c]], y)
     abl.append({"feature": c, "alone_cv_R2": s.R2.mean(), "drop_one_cv_R2": d.R2.mean(),
                 "delta_R2_when_dropped": d.R2.mean() - base.R2, "delta_RMSE_when_dropped": d.RMSE.mean() - base.RMSE})
-abl = pd.DataFrame(abl).set_index("feature"); abl.round(4).to_csv(OUT / "feature_ablation.csv")
+abl = pd.DataFrame(abl).set_index("feature"); abl.round(4).to_csv(FEAT / "feature_ablation.csv")
 say("\n== Feature performance (cross-validated) =="); say(abl.round(3).to_string())
 
 # best small subsets, chosen by repeated CV (exploratory - optimistic because chosen on the same data)
@@ -201,7 +207,7 @@ for k in range(1, 6):
     for comb in combinations(F, k):
         subs.append({"vars": ", ".join(comb), "k": k, "cv_R2": repeated_cv(LinearRegression(), X[list(comb)], y, reps=5).R2.mean()})
 subs = pd.DataFrame(subs).sort_values("cv_R2", ascending=False).head(8)
-subs.round(4).to_csv(OUT / "best_subsets_exploratory.csv", index=False)
+subs.round(4).to_csv(FEAT / "best_subsets_exploratory.csv", index=False)
 say("\n== Top subsets by CV R2 (exploratory, optimistic) =="); say(subs.round(3).to_string(index=False))
 
 # ------------------------------------------------------------------ 6. opening-round sensitivity
@@ -213,7 +219,7 @@ d_base_h = repeated_cv(DummyRegressor(), Xh, yh)
 sens = pd.DataFrame({"all 104 matches": {"n": len(D), "cv_R2": d_all.R2.mean(), "cv_RMSE": d_all.RMSE.mean()},
                      "80 matches with history (OLS)": {"n": int(has_hist.sum()), "cv_R2": d_hist.R2.mean(), "cv_RMSE": d_hist.RMSE.mean()},
                      "80 matches with history (mean baseline)": {"n": int(has_hist.sum()), "cv_R2": d_base_h.R2.mean(), "cv_RMSE": d_base_h.RMSE.mean()}}).T
-sens.round(4).to_csv(OUT / "opening_round_sensitivity.csv")
+sens.round(4).to_csv(FEAT / "opening_round_sensitivity.csv")
 say("\n== Sensitivity: matches with vs without any history =="); say(sens.round(3).to_string())
 
 # ------------------------------------------------------------------ 7. predictions figure
@@ -221,7 +227,7 @@ best_name = "OLS (8 vars)"
 oof = np.mean([cross_val_predict(LinearRegression(), X, y, cv=KFold(5, shuffle=True, random_state=SEED + r))
                for r in range(20)], axis=0)
 pd.DataFrame({"match_no": D.match_no, "team1": D.team1, "team2": D.team2, "actual": y,
-              "cv_predicted": oof}).round(3).to_csv(OUT / "cv_predictions.csv", index=False)
+              "cv_predicted": oof}).round(3).to_csv(EVAL / "cv_predictions.csv", index=False)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))
 axs[0].scatter(oof, y, s=16, alpha=.7, color=BLUE); lim = [-4, 6]
 axs[0].plot(lim, lim, "--", color=GREY); axs[0].set(xlabel="Predicted (cross-validated)", ylabel="Actual goal difference",
@@ -229,7 +235,7 @@ axs[0].plot(lim, lim, "--", color=GREY); axs[0].set(xlabel="Predicted (cross-val
 names = list(cvt.index)
 axs[1].barh(names[::-1], cvt["RMSE"].values[::-1], xerr=cvt["RMSE_sd"].values[::-1], color=[GREY if n.startswith("Base") else BLUE for n in names[::-1]])
 axs[1].set(xlabel="CV RMSE (goals) - lower is better", title="Model comparison")
-fig.tight_layout(); fig.savefig(OUT / "fig6_prediction_and_model_comparison.png"); plt.close(fig)
+fig.tight_layout(); fig.savefig(EVAL / "fig6_prediction_and_model_comparison.png"); plt.close(fig)
 
 (OUT / "results_log.txt").write_text("\n".join(log))
 print("\nDone. Files in", OUT)
