@@ -1,5 +1,22 @@
 # Data sources (approved sites only)
 
+Both models in this repository are built from the same three raw files below:
+`build_dataset.py` -> 104 rows (Linear Regression 2.1, goal difference) and
+`build_dataset_lr22.py` -> 208 rows (Linear Regression 2.2, goals scored by a team).
+
+Shared explanatory variables between 2.1 and 2.2 (limit is 4):
+
+| 2.1 | 2.2 | Shared? |
+|---|---|---|
+| `rest_diff` (team1 rest - team2 rest) | `rest_days` (that team's rest) | same underlying statistic, different form - 1 |
+| `fifa_pts_diff` (team1 points - team2 points) | `team_fifa_pts`, `opp_fifa_pts` (levels) | different form; counted as distinct |
+| `xg_diff`, `xga_diff` (expected goals) | `prior_goals_avg`, `opp_prior_conceded_avg` (actual goals) | different statistics |
+| `ppg_diff`, `fouls_diff`, `is_knockout`, `host_adv` | `prior_sot_avg`, `prior_shots_avg`, `prior_corners_avg` | not shared |
+
+No variable name appears in both models. Counting every related pair as shared gives 4,
+which is the maximum allowed.
+
+
 | File | What it holds | Source |
 |---|---|---|
 | `tsdl_match_table_raw.csv` | 103 matches (72 group stage + 31 knockout): date, teams, score, goals by half, cards, corners by half, xG, shots, shots on target, fouls, for both teams | The Stats Don't Lie - World Cup 2026 page, "Fixtures / Results / Match Stats" table. The site embeds it from a published Google Sheet (gid=995472238, ranges A1:AB75 and A76:AB121): https://www.thestatsdontlie.com/football/world-cup-2026/ |
