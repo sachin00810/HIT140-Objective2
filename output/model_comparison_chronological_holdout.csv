@@ -1,0 +1,7 @@
+model,R2,MAE,RMSE
+Baseline (mean),-0.302,1.426,1.747
+OLS (8 vars),-0.748,1.494,2.024
+Ridge (alpha by CV),-0.653,1.423,1.969
+Lasso (alpha by CV),-0.768,1.508,2.036
+Huber (robust),-0.818,1.503,2.064
+OLS + best-k selection,-0.748,1.494,2.024
