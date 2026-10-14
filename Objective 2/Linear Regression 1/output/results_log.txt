@@ -107,6 +107,6 @@ xga_diff, fifa_pts_diff, fouls_diff, rest_diff, is_knockout  5  0.400
 
 == Sensitivity: matches with vs without any history ==
                                              n  cv_R2  cv_RMSE
-all 104 matches                          104.0  0.355    1.617
-80 matches with history (OLS)            104.0  0.355    1.617
-80 matches with history (mean baseline)  104.0 -0.019    2.033
+all 104 matches (OLS)                    104.0  0.355    1.617
+80 matches with history (OLS)             80.0  0.397    1.577
+80 matches with history (mean baseline)   80.0 -0.024    2.055

@@ -212,13 +212,14 @@ say("\n== Top subsets by CV R2 (exploratory, optimistic) =="); say(subs.round(3)
 
 # ------------------------------------------------------------------ 6. opening-round sensitivity
 # 24 opening-round matches have no history (all history differences = 0). Do they hurt the model?
-has_hist = D[bd.FEATURES[:6]].abs().sum(axis=1) > 0
+has_hist = D[bd.HISTORY].abs().sum(axis=1) > 0   # the 5 tournament-history variables only
 Xh, yh = X[has_hist], y[has_hist]
 d_all = repeated_cv(LinearRegression(), X, y); d_hist = repeated_cv(LinearRegression(), Xh, yh)
 d_base_h = repeated_cv(DummyRegressor(), Xh, yh)
-sens = pd.DataFrame({"all 104 matches": {"n": len(D), "cv_R2": d_all.R2.mean(), "cv_RMSE": d_all.RMSE.mean()},
-                     "80 matches with history (OLS)": {"n": int(has_hist.sum()), "cv_R2": d_hist.R2.mean(), "cv_RMSE": d_hist.RMSE.mean()},
-                     "80 matches with history (mean baseline)": {"n": int(has_hist.sum()), "cv_R2": d_base_h.R2.mean(), "cv_RMSE": d_base_h.RMSE.mean()}}).T
+nh = int(has_hist.sum())
+sens = pd.DataFrame({f"all {len(D)} matches (OLS)": {"n": len(D), "cv_R2": d_all.R2.mean(), "cv_RMSE": d_all.RMSE.mean()},
+                     f"{nh} matches with history (OLS)": {"n": nh, "cv_R2": d_hist.R2.mean(), "cv_RMSE": d_hist.RMSE.mean()},
+                     f"{nh} matches with history (mean baseline)": {"n": nh, "cv_R2": d_base_h.R2.mean(), "cv_RMSE": d_base_h.RMSE.mean()}}).T
 sens.round(4).to_csv(FEAT / "opening_round_sensitivity.csv")
 say("\n== Sensitivity: matches with vs without any history =="); say(sens.round(3).to_string())
 
